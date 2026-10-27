@@ -1,0 +1,9 @@
+node_modules/
+.env
+.env.*
+!.env.exemplo
+coverage/
+*.log
+.dados-postgres/
+.senha-postgres-temporaria
+

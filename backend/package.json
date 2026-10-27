@@ -1,0 +1,36 @@
+{
+  "name": "fogo-prometheus-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "test": "node --test testes/*.test.js",
+    "test:integracao": "node --test testes/integracao/*.test.js",
+    "prisma:gerar": "prisma generate",
+    "prisma:validar": "prisma validate",
+    "migrar": "prisma migrate deploy",
+    "migrar:desenvolvimento": "prisma migrate dev",
+    "seed": "node prisma/seed.js",
+    "usuario:criar": "node scripts/criar-usuario.js"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.0.0",
+    "@prisma/client": "^7.0.0",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "socket.io": "^4.8.1",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "prisma": "^7.0.0",
+    "socket.io-client": "^4.8.1"
+  }
+}

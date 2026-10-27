@@ -1,0 +1,351 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Perfil {
+  ADMINISTRADOR
+  GESTOR
+  OPERADOR
+  VISUALIZADOR
+}
+
+enum SituacaoEquipamento {
+  NAO_INSTALADO
+  OPERACIONAL
+  MAU_FUNCIONAMENTO
+  EM_MANUTENCAO
+  DESATIVADO
+  FURTADO
+}
+
+enum FamiliaEquipamento {
+  CAMERA
+  RADAR
+  VEICULO
+  OUTRO
+}
+
+enum Mobilidade {
+  FIXO
+  MOVEL
+}
+
+enum SituacaoAgente {
+  EM_ATIVIDADE
+  DISPONIVEL
+  AFASTADO
+  FORA_DE_SERVICO
+}
+
+enum TipoManutencao {
+  IMEDIATA
+  AGENDADA
+  PERIODICA
+}
+
+enum SituacaoManutencao {
+  PENDENTE
+  EM_ANDAMENTO
+  CONCLUIDA
+  CANCELADA
+}
+
+enum Gravidade {
+  BAIXA
+  MEDIA
+  ALTA
+  CRITICA
+}
+
+enum SituacaoAlerta {
+  ABERTO
+  RECONHECIDO
+  RESOLVIDO
+}
+
+model Usuario {
+  id           String   @id @default(uuid()) @db.Uuid
+  nome         String
+  email        String   @unique
+  senhaHash    String
+  perfil       Perfil   @default(VISUALIZADOR)
+  ativo        Boolean  @default(true)
+  criadoEm     DateTime @default(now()) @db.Timestamptz(3)
+  atualizadoEm DateTime @updatedAt @db.Timestamptz(3)
+}
+
+model Orgao {
+  id           String        @id @default(uuid()) @db.Uuid
+  nome         String        @unique
+  sigla        String
+  excluidoEm   DateTime?     @db.Timestamptz(3)
+  criadoEm     DateTime      @default(now()) @db.Timestamptz(3)
+  atualizadoEm DateTime      @updatedAt @db.Timestamptz(3)
+  equipamentos Equipamento[]
+  agentes      Agente[]
+}
+
+model Regiao {
+  id            String                 @id @default(uuid()) @db.Uuid
+  nome          String
+  cidade        String
+  estado        String                 @db.Char(2)
+  bairros       String[]
+  excluidoEm    DateTime?              @db.Timestamptz(3)
+  criadoEm      DateTime               @default(now()) @db.Timestamptz(3)
+  atualizadoEm  DateTime               @updatedAt @db.Timestamptz(3)
+  equipamentos  Equipamento[]
+  agentes       Agente[]
+  alertas       Alerta[]
+  ocorrencias   Ocorrencia[]
+  previsoes     Previsao[]
+  recomendacoes Recomendacao[]
+  indicadores   IndicadorOperacional[]
+
+  @@unique([nome, cidade, estado])
+}
+
+model TipoEquipamento {
+  id           String             @id @default(uuid()) @db.Uuid
+  nome         String             @unique
+  familia      FamiliaEquipamento @default(OUTRO)
+  excluidoEm   DateTime?          @db.Timestamptz(3)
+  criadoEm     DateTime           @default(now()) @db.Timestamptz(3)
+  atualizadoEm DateTime           @updatedAt @db.Timestamptz(3)
+  equipamentos Equipamento[]
+}
+
+model Equipamento {
+  id                String              @id @default(uuid()) @db.Uuid
+  tipoId            String              @db.Uuid
+  tipo              TipoEquipamento     @relation(fields: [tipoId], references: [id], onDelete: Restrict)
+  orgaoId           String              @db.Uuid
+  orgao             Orgao               @relation(fields: [orgaoId], references: [id], onDelete: Restrict)
+  regiaoId          String?             @db.Uuid
+  regiao            Regiao?             @relation(fields: [regiaoId], references: [id], onDelete: Restrict)
+  numeroSerie       String?             @unique
+  marca             String
+  modelo            String
+  descricao         String
+  mobilidade        Mobilidade          @default(FIXO)
+  situacao          SituacaoEquipamento @default(NAO_INSTALADO)
+  cep               String?
+  bairro            String?
+  cidade            String
+  estado            String              @db.Char(2)
+  rua               String?
+  referencia        String?
+  latitude          Float?
+  longitude         Float?
+  baseOperacional   String?
+  baseLatitude      Float?
+  baseLongitude     Float?
+  propriedades      Json                @default("{}") @db.JsonB
+  ultimaComunicacao DateTime?           @db.Timestamptz(3)
+  ultimaPosicaoEm   DateTime?           @db.Timestamptz(3)
+  semComunicacao    Boolean             @default(false)
+  excluidoEm        DateTime?           @db.Timestamptz(3)
+  criadoEm          DateTime            @default(now()) @db.Timestamptz(3)
+  atualizadoEm      DateTime            @updatedAt @db.Timestamptz(3)
+  historicos        HistoricoSituacao[]
+  manutencoes       Manutencao[]
+  posicoes          HistoricoPosicao[]
+  telemetrias       Telemetria[]
+  alertas           Alerta[]
+  recomendacoes     Recomendacao[]
+
+  @@index([regiaoId, situacao, excluidoEm])
+  @@index([tipoId, orgaoId])
+  @@index([ultimaComunicacao])
+  @@index([cidade, bairro])
+}
+
+model HistoricoSituacao {
+  id               String               @id @default(uuid()) @db.Uuid
+  equipamentoId    String               @db.Uuid
+  equipamento      Equipamento          @relation(fields: [equipamentoId], references: [id], onDelete: Restrict)
+  situacaoAnterior SituacaoEquipamento?
+  situacaoNova     SituacaoEquipamento
+  motivo           String
+  criadoEm         DateTime             @default(now()) @db.Timestamptz(3)
+
+  @@index([equipamentoId, criadoEm])
+}
+
+model Manutencao {
+  id            String                @id @default(uuid()) @db.Uuid
+  equipamentoId String                @db.Uuid
+  equipamento   Equipamento           @relation(fields: [equipamentoId], references: [id], onDelete: Restrict)
+  tipo          TipoManutencao
+  descricao     String
+  prioridade    Gravidade
+  situacao      SituacaoManutencao    @default(PENDENTE)
+  dataPrevista  DateTime              @db.Timestamptz(3)
+  dataConclusao DateTime?             @db.Timestamptz(3)
+  observacoes   String?
+  criadoEm      DateTime              @default(now()) @db.Timestamptz(3)
+  atualizadoEm  DateTime              @updatedAt @db.Timestamptz(3)
+  historicos    HistoricoManutencao[]
+
+  @@index([situacao, dataPrevista])
+  @@index([equipamentoId])
+}
+
+// Uma linha por alteração evita sobrescrever o histórico da manutenção.
+model HistoricoManutencao {
+  id           String     @id @default(uuid()) @db.Uuid
+  manutencaoId String     @db.Uuid
+  manutencao   Manutencao @relation(fields: [manutencaoId], references: [id], onDelete: Restrict)
+  dados        Json       @db.JsonB
+  criadoEm     DateTime   @default(now()) @db.Timestamptz(3)
+
+  @@index([manutencaoId, criadoEm])
+}
+
+model Agente {
+  id              String             @id @default(uuid()) @db.Uuid
+  nome            String
+  matricula       String             @unique
+  funcao          String
+  orgaoId         String             @db.Uuid
+  orgao           Orgao              @relation(fields: [orgaoId], references: [id], onDelete: Restrict)
+  regiaoId        String?            @db.Uuid
+  regiao          Regiao?            @relation(fields: [regiaoId], references: [id], onDelete: Restrict)
+  baseOperacional String
+  bairro          String?
+  cidade          String
+  situacao        SituacaoAgente     @default(FORA_DE_SERVICO)
+  latitude        Float?
+  longitude       Float?
+  ultimaPosicaoEm DateTime?          @db.Timestamptz(3)
+  excluidoEm      DateTime?          @db.Timestamptz(3)
+  criadoEm        DateTime           @default(now()) @db.Timestamptz(3)
+  atualizadoEm    DateTime           @updatedAt @db.Timestamptz(3)
+  posicoes        HistoricoPosicao[]
+  alertas         Alerta[]
+
+  @@index([regiaoId, situacao, excluidoEm])
+  @@index([orgaoId])
+}
+
+model HistoricoPosicao {
+  id            String       @id @default(uuid()) @db.Uuid
+  equipamentoId String?      @db.Uuid
+  equipamento   Equipamento? @relation(fields: [equipamentoId], references: [id], onDelete: Restrict)
+  agenteId      String?      @db.Uuid
+  agente        Agente?      @relation(fields: [agenteId], references: [id], onDelete: Restrict)
+  latitude      Float
+  longitude     Float
+  ocorridoEm    DateTime     @db.Timestamptz(3)
+  criadoEm      DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@index([equipamentoId, ocorridoEm])
+  @@index([agenteId, ocorridoEm])
+}
+
+model Telemetria {
+  id                    String      @id @default(uuid()) @db.Uuid
+  equipamentoId         String      @db.Uuid
+  equipamento           Equipamento @relation(fields: [equipamentoId], references: [id], onDelete: Restrict)
+  identificadorMensagem String      @unique
+  dados                 Json        @db.JsonB
+  ocorridoEm            DateTime    @db.Timestamptz(3)
+  criadoEm              DateTime    @default(now()) @db.Timestamptz(3)
+
+  @@index([equipamentoId, ocorridoEm])
+}
+
+model Ocorrencia {
+  id           String    @id @default(uuid()) @db.Uuid
+  categoria    String
+  descricao    String
+  gravidade    Gravidade
+  ocorridoEm   DateTime  @db.Timestamptz(3)
+  bairro       String?
+  regiaoId     String    @db.Uuid
+  regiao       Regiao    @relation(fields: [regiaoId], references: [id], onDelete: Restrict)
+  latitude     Float?
+  longitude    Float?
+  origem       String
+  criadoEm     DateTime  @default(now()) @db.Timestamptz(3)
+  atualizadoEm DateTime  @updatedAt @db.Timestamptz(3)
+
+  @@index([regiaoId, ocorridoEm])
+  @@index([ocorridoEm])
+}
+
+model Alerta {
+  id            String         @id @default(uuid()) @db.Uuid
+  tipo          String
+  titulo        String
+  descricao     String
+  origem        String
+  gravidade     Gravidade
+  situacao      SituacaoAlerta @default(ABERTO)
+  // A chave é liberada ao resolver; a restrição única evita duplicatas concorrentes.
+  chaveAtiva    String?        @unique
+  equipamentoId String?        @db.Uuid
+  equipamento   Equipamento?   @relation(fields: [equipamentoId], references: [id], onDelete: Restrict)
+  agenteId      String?        @db.Uuid
+  agente        Agente?        @relation(fields: [agenteId], references: [id], onDelete: Restrict)
+  regiaoId      String?        @db.Uuid
+  regiao        Regiao?        @relation(fields: [regiaoId], references: [id], onDelete: Restrict)
+  ocorridoEm    DateTime       @default(now()) @db.Timestamptz(3)
+  resolvidoEm   DateTime?      @db.Timestamptz(3)
+  criadoEm      DateTime       @default(now()) @db.Timestamptz(3)
+  atualizadoEm  DateTime       @updatedAt @db.Timestamptz(3)
+
+  @@index([regiaoId, situacao, gravidade])
+}
+
+model Previsao {
+  id            String         @id @default(uuid()) @db.Uuid
+  regiaoId      String         @db.Uuid
+  regiao        Regiao         @relation(fields: [regiaoId], references: [id], onDelete: Restrict)
+  pontuacao     Float
+  classificacao String
+  fatores       Json           @db.JsonB
+  inicioPeriodo DateTime       @db.Timestamptz(3)
+  fimPeriodo    DateTime       @db.Timestamptz(3)
+  criadoEm      DateTime       @default(now()) @db.Timestamptz(3)
+  recomendacoes Recomendacao[]
+
+  @@index([regiaoId, criadoEm])
+}
+
+model Recomendacao {
+  id            String       @id @default(uuid()) @db.Uuid
+  titulo        String
+  descricao     String
+  prioridade    Gravidade
+  justificativa String
+  regiaoId      String       @db.Uuid
+  regiao        Regiao       @relation(fields: [regiaoId], references: [id], onDelete: Restrict)
+  equipamentoId String?      @db.Uuid
+  equipamento   Equipamento? @relation(fields: [equipamentoId], references: [id], onDelete: Restrict)
+  previsaoId    String       @db.Uuid
+  previsao      Previsao     @relation(fields: [previsaoId], references: [id], onDelete: Restrict)
+  criadoEm      DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@index([regiaoId, criadoEm])
+}
+
+// Fotografias horárias reais da operação formam a referência das anomalias.
+model IndicadorOperacional {
+  id              String   @id @default(uuid()) @db.Uuid
+  regiaoId        String   @db.Uuid
+  regiao          Regiao   @relation(fields: [regiaoId], references: [id], onDelete: Restrict)
+  total           Int
+  elegiveis       Int
+  defeituosos     Int
+  semComunicacao  Int
+  alertasAtivos   Int
+  disponibilidade Float
+  criadoEm        DateTime @db.Timestamptz(3)
+
+  @@unique([regiaoId, criadoEm])
+}
